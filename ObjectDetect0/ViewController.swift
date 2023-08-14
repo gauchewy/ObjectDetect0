@@ -83,6 +83,7 @@ class ViewController: UIViewController {
                     for observation in results {
                         if self.isHandInVictoryPosition(observation: observation) {
                             victoryHandsCount += 1
+                            print("victory hands count:", victoryHandsCount)
                         }
                     }
 
@@ -103,55 +104,56 @@ class ViewController: UIViewController {
         try? imageResultHandler.perform([handPoseRequest])
     }
     
-    private func distance(from point1: CGPoint, to point2: CGPoint) -> CGFloat {
-        return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2))
-    }
-
     private func isHandInVictoryPosition(observation: VNHumanHandPoseObservation) -> Bool {
         guard let thumbPoints = try? observation.recognizedPoints(.thumb),
               let indexPoints = try? observation.recognizedPoints(.indexFinger),
               let middlePoints = try? observation.recognizedPoints(.middleFinger),
               let ringPoints = try? observation.recognizedPoints(.ringFinger),
-              let littlePoints = try? observation.recognizedPoints(.littleFinger),
-              let wristPoint = try? observation.recognizedPoints(.all)[.wrist] else {
+              let littlePoints = try? observation.recognizedPoints(.littleFinger) else {
             return false
         }
         
-
-        guard let wristPoints = try? observation.recognizedPoints(.all),
-              let wrist = wristPoints[.wrist] else {
-            return false
-        }
-
         let confidenceThreshold: Float = 0.3
-        let extendedDistanceThreshold: CGFloat = 0.20
+        let extendedAngleThreshold: CGFloat = 100.0
         
-        func isFingerExtended(fingerTip: VNRecognizedPoint?) -> Bool {
-            guard let tip = fingerTip, tip.confidence > confidenceThreshold else {
-                return false
+        func isFingerExtended(joints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], tip: VNHumanHandPoseObservation.JointName, distal: VNHumanHandPoseObservation.JointName, proximal: VNHumanHandPoseObservation.JointName) -> Float {
+            guard let tipPoint = joints[tip], let dip = joints[distal], let pip = joints[proximal],
+                  tipPoint.confidence > confidenceThreshold, dip.confidence > confidenceThreshold, pip.confidence > confidenceThreshold else {
+                return 0.0
             }
-            let dis = distance(from: tip.location, to: wrist.location)
-            print(dis)
-            return dis > extendedDistanceThreshold
+            let angle = calculateAngle(A: pip.location, B: dip.location, C: tipPoint.location)
+            return Float(angle)
         }
-
-        let thumbExtended = isFingerExtended(fingerTip: thumbPoints[.thumbTip])
-        let indexExtended = isFingerExtended(fingerTip: indexPoints[.indexTip])
-        let middleExtended = isFingerExtended(fingerTip: middlePoints[.middleTip])
-        let ringExtended = isFingerExtended(fingerTip: ringPoints[.ringTip])
-        let littleExtended = isFingerExtended(fingerTip: littlePoints[.littleTip])
         
-//        print("Thumb Points:", thumbExtended)
-//        print("Index Points:", indexExtended)
-//        print("Middle Points:", middleExtended)
-//        print("Ring Points:", ringExtended)
-//        print("Little Points:", littleExtended)
-
+        let thumbExtended = isFingerExtended(joints: thumbPoints, tip: .thumbTip, distal: .thumbIP, proximal: .thumbMP)
+        let indexExtended = isFingerExtended(joints: indexPoints, tip: .indexTip, distal: .indexDIP, proximal: .indexPIP)
+        let middleExtended = isFingerExtended(joints: middlePoints, tip: .middleTip, distal: .middleDIP, proximal: .middlePIP)
+        let ringExtended = isFingerExtended(joints: ringPoints, tip: .ringTip, distal: .ringDIP, proximal: .ringPIP)
+        let littleExtended = isFingerExtended(joints: littlePoints, tip: .littleTip, distal: .littleDIP, proximal: .littlePIP)
+        
+        print("thumb:", thumbExtended)
+        print("index:", indexExtended)
+        print("middle:", middleExtended)
+        print("ring:", ringExtended)
+        print("little:", littleExtended)
+        
         // Victory position is inferred if only the index and middle fingers are extended
-        let victoryDetected = indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
-        print(victoryDetected)
-        return victoryDetected
+        //let victoryPoseRes = indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
+        return true
     }
+
+    private func calculateAngle(A: CGPoint, B: CGPoint, C: CGPoint) -> CGFloat {
+        let BA = CGPoint(x: A.x - B.x, y: A.y - B.y)
+        let BC = CGPoint(x: C.x - B.x, y: C.y - B.y)
+        
+        let dotProduct = (BA.x * BC.x + BA.y * BC.y)
+        let magnitudeOfBA = sqrt(BA.x*BA.x + BA.y*BA.y)
+        let magnitudeOfBC = sqrt(BC.x*BC.x + BC.y*BC.y)
+        let angle = acos(dotProduct / (magnitudeOfBA * magnitudeOfBC)) * (180.0 / CGFloat.pi)
+        
+        return angle
+    }
+
 
 }
 
