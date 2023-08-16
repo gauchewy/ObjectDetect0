@@ -88,10 +88,11 @@ class ViewController: UIViewController {
 
                     // Post the number of victory hands detected
                     NotificationCenter.default.post(name: .numberOfVictoryHandsDetectedChanged, object: victoryHandsCount)
-
+                    
                     // Post total number of hands detected
                     NotificationCenter.default.post(name: .numberOfHandsDetectedChanged, object: results.count)
                 } else {
+                    NotificationCenter.default.post(name: .numberOfVictoryHandsDetectedChanged, object: 0)
                     NotificationCenter.default.post(name: .numberOfHandsDetectedChanged, object: 0)
                 }
             }
@@ -102,6 +103,7 @@ class ViewController: UIViewController {
         let imageResultHandler = VNImageRequestHandler(cvPixelBuffer: image, orientation: .leftMirrored, options: [:])
         try? imageResultHandler.perform([handPoseRequest])
     }
+
     
     private func distance(from point1: CGPoint, to point2: CGPoint) -> CGFloat {
         return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2))

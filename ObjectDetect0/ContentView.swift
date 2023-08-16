@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Foundation
+import Combine
 
 struct CameraView: UIViewControllerRepresentable {
     typealias UIViewControllerType = ViewController
@@ -23,6 +25,11 @@ struct ContentView: View {
     @State private var selectedOption = 0
     @State private var isTwoHandsDetected = false
     @State private var isVictoryPoseDetected = false
+    @State private var numberOfVictoryHands: Int = 0
+    @State private var numberOfTotalHands: Int = 0
+    @State private var resetTimer: Timer?
+
+
     
     var menuTitle: String {
         switch selectedOption {
@@ -95,16 +102,29 @@ struct ContentView: View {
                 Spacer()
             }
         }
+        //two hands
         .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
             if selectedOption == 0, let numberOfHands = notification.object as? Int {
                 isTwoHandsDetected = numberOfHands == 2
             }
         }
+        //victoryhands
         .onReceive(NotificationCenter.default.publisher(for: .numberOfVictoryHandsDetectedChanged)) { notification in
-            if selectedOption == 1, let numberOfVictoryHands = notification.object as? Int {
-                isVictoryPoseDetected = numberOfVictoryHands == 2
+            if selectedOption == 1,
+               let detectedVictoryHands = notification.object as? Int {
+                numberOfVictoryHands = detectedVictoryHands
             }
         }
+
+        .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
+            if selectedOption == 1,
+               let detectedTotalHands = notification.object as? Int {
+                numberOfTotalHands = detectedTotalHands
+            }
+
+            isVictoryPoseDetected = numberOfTotalHands == 2 && numberOfVictoryHands >= 1
+        }
+
     }
 
 }
