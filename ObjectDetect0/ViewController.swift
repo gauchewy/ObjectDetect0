@@ -124,15 +124,19 @@ class ViewController: UIViewController {
         }
 
         let confidenceThreshold: Float = 0.3
-        let extendedDistanceThreshold: CGFloat = 0.20
+        let extendedDistanceThreshold: CGFloat = 0.20 //20 percent of the diagonal length of screen
+        guard let middleMCP = middlePoints[.middleMCP] else {
+            return false
+        }
+        let palmDistance: CGFloat = distance(from: middleMCP.location, to: wrist.location)
+
         
         func isFingerExtended(fingerTip: VNRecognizedPoint?) -> Bool {
             guard let tip = fingerTip, tip.confidence > confidenceThreshold else {
                 return false
             }
             let dis = distance(from: tip.location, to: wrist.location)
-            print(dis)
-            return dis > extendedDistanceThreshold
+            return dis > palmDistance*1.2
         }
 
         let thumbExtended = isFingerExtended(fingerTip: thumbPoints[.thumbTip])
@@ -141,11 +145,11 @@ class ViewController: UIViewController {
         let ringExtended = isFingerExtended(fingerTip: ringPoints[.ringTip])
         let littleExtended = isFingerExtended(fingerTip: littlePoints[.littleTip])
         
-//        print("Thumb Points:", thumbExtended)
-//        print("Index Points:", indexExtended)
-//        print("Middle Points:", middleExtended)
-//        print("Ring Points:", ringExtended)
-//        print("Little Points:", littleExtended)
+        print("Thumb Points:", thumbExtended)
+        print("Index Points:", indexExtended)
+        print("Middle Points:", middleExtended)
+        print("Ring Points:", ringExtended)
+        print("Little Points:", littleExtended)
 
         // Victory position is inferred if only the index and middle fingers are extended
         let victoryDetected = indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
