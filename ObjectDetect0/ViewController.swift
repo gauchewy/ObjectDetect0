@@ -80,14 +80,22 @@ class ViewController: UIViewController {
                 guard let self = self else { return }
                 if let results = vnRequest.results as? [VNHumanHandPoseObservation], !results.isEmpty {
                     var victoryHandsCount = 0
+                    var thumbsUpHandsCount = 0
                     for observation in results {
                         if self.isHandInVictoryPosition(observation: observation) {
                             victoryHandsCount += 1
+                        }
+                        if self.isHandInThumbsUpPosition(observation: observation) {
+                            thumbsUpHandsCount += 1
                         }
                     }
 
                     // Post the number of victory hands detected
                     NotificationCenter.default.post(name: .numberOfVictoryHandsDetectedChanged, object: victoryHandsCount)
+                    
+                    // Post the number of thumbs up hands detected
+                    NotificationCenter.default.post(name: .numberOfThumbsUpHandsDetectedChanged, object: thumbsUpHandsCount)
+                    
                     
                     // Post total number of hands detected
                     NotificationCenter.default.post(name: .numberOfHandsDetectedChanged, object: results.count)
@@ -108,70 +116,93 @@ class ViewController: UIViewController {
     private func distance(from point1: CGPoint, to point2: CGPoint) -> CGFloat {
         return sqrt(pow(point2.x - point1.x, 2) + pow(point2.y - point1.y, 2))
     }
-
-    private func isHandInVictoryPosition(observation: VNHumanHandPoseObservation) -> Bool {
+    
+    //notes:
+    //hand palm must be facing camera
+    //simple gestures like thumbs up we're all good
+    private func calculateMCPToWristDistance(for fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> CGFloat? {
+        guard let mcpLocation = fingerPoints[mcpJoint]?.location else {
+            return nil
+        }
+        return distance(from: mcpLocation, to: wristLocation)
+    }
+    
+    private func isFingerExtended(fingerTip: VNRecognizedPoint?, fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> Bool {
+        guard let tipLocation = fingerTip?.location else {
+            return false
+        }
+        
+        guard let mcpToWristDistance = calculateMCPToWristDistance(for: fingerPoints, mcpJoint: mcpJoint, wristLocation: wristLocation) else {
+            return false
+        }
+        
+        let tipToWristDistance = distance(from: tipLocation, to: wristLocation)
+        return tipToWristDistance > mcpToWristDistance
+    }
+    
+    private func extendedFingerPositions(observation: VNHumanHandPoseObservation) -> [Bool]? {
         guard let thumbPoints = try? observation.recognizedPoints(.thumb),
               let indexPoints = try? observation.recognizedPoints(.indexFinger),
               let middlePoints = try? observation.recognizedPoints(.middleFinger),
               let ringPoints = try? observation.recognizedPoints(.ringFinger),
-              let littlePoints = try? observation.recognizedPoints(.littleFinger)
-              //let wristPoint = try? observation.recognizedPoints(.all)[.wrist]
-        else {
-            return false
-        }
-        
-        guard let wristPoints = try? observation.recognizedPoints(.all),
+              let littlePoints = try? observation.recognizedPoints(.littleFinger),
+              let wristPoints = try? observation.recognizedPoints(.all),
               let wrist = wristPoints[.wrist] else {
-            return false
+            return nil
         }
-
-
-        //notes:
-        //hand palm must be facing camera
-        //simple gestures like thumbs up we're all good
-        func calculateMCPToWristDistance(for fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> CGFloat? {
-            guard let mcpLocation = fingerPoints[mcpJoint]?.location else {
-                return nil
-            }
-            return distance(from: mcpLocation, to: wristLocation)
-        }
-
-
-        func isFingerExtended(fingerTip: VNRecognizedPoint?, fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> Bool {
-            guard let tipLocation = fingerTip?.location else {
-                return false
-            }
-            
-            guard let mcpToWristDistance = calculateMCPToWristDistance(for: fingerPoints, mcpJoint: mcpJoint, wristLocation: wristLocation) else {
-                return false
-            }
-            
-            let tipToWristDistance = distance(from: tipLocation, to: wristLocation)
-            return tipToWristDistance > mcpToWristDistance
-        }
-
-        
 
         let thumbExtended = isFingerExtended(fingerTip: thumbPoints[.thumbTip], fingerPoints: thumbPoints, mcpJoint: .thumbMP, wristLocation: wrist.location)
         let indexExtended = isFingerExtended(fingerTip: indexPoints[.indexTip], fingerPoints: indexPoints, mcpJoint: .indexMCP, wristLocation: wrist.location)
         let middleExtended = isFingerExtended(fingerTip: middlePoints[.middleTip], fingerPoints: middlePoints, mcpJoint: .middleMCP, wristLocation: wrist.location)
         let ringExtended = isFingerExtended(fingerTip: ringPoints[.ringTip], fingerPoints: ringPoints, mcpJoint: .ringMCP, wristLocation: wrist.location)
         let littleExtended = isFingerExtended(fingerTip: littlePoints[.littleTip], fingerPoints: littlePoints, mcpJoint: .littleMCP, wristLocation: wrist.location)
-
         
-        print("Thumb Points:", thumbExtended)
-        print("Index Points:", indexExtended)
-        print("Middle Points:", middleExtended)
-        print("Ring Points:", ringExtended)
-        print("Little Points:", littleExtended)
-        print("____")
-
-        // Victory position is inferred if only the index and middle fingers are extended
-        let victoryDetected = indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
-
-        return victoryDetected
+        return [thumbExtended, indexExtended, middleExtended, ringExtended, littleExtended]
     }
 
+    private func isVictoryHandPose(fingerPositions: [Bool]) -> Bool {
+        guard fingerPositions.count == 5 else { return false }
+
+        let thumbExtended = fingerPositions[0]
+        let indexExtended = fingerPositions[1]
+        let middleExtended = fingerPositions[2]
+        let ringExtended = fingerPositions[3]
+        let littleExtended = fingerPositions[4]
+
+        // Victory position is inferred if only the index and middle fingers are extended
+        return indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
+    }
+    
+    private func isThumbsUpHandPose(fingerPositions: [Bool]) -> Bool {
+        guard fingerPositions.count == 5 else { return false }
+
+        let thumbExtended = fingerPositions[0]
+        let indexExtended = fingerPositions[1]
+        let middleExtended = fingerPositions[2]
+        let ringExtended = fingerPositions[3]
+        let littleExtended = fingerPositions[4]
+        
+//        print("thumb: ", thumbExtended)
+//        print("index: ", indexExtended)
+//        print("middle: ", middleExtended)
+//        print("ring: ", ringExtended)
+//        print("little: ", littleExtended)
+//        print(">>>>>")
+
+        //only thumb extended
+        return !indexExtended && !middleExtended && thumbExtended && !ringExtended && !littleExtended
+    }
+
+    private func isHandInVictoryPosition(observation: VNHumanHandPoseObservation) -> Bool {
+        guard let fingerPositions = extendedFingerPositions(observation: observation) else { return false }
+        return isVictoryHandPose(fingerPositions: fingerPositions)
+    }
+
+    private func isHandInThumbsUpPosition(observation: VNHumanHandPoseObservation) -> Bool {
+        guard let fingerPositions = extendedFingerPositions(observation: observation) else { return false }
+        print(isThumbsUpHandPose(fingerPositions: fingerPositions))
+        return isThumbsUpHandPose(fingerPositions: fingerPositions)
+    }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
