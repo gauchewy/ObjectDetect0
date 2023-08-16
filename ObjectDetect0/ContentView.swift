@@ -25,9 +25,12 @@ struct ContentView: View {
     @State private var selectedOption = 0
     @State private var isTwoHandsDetected = false
     @State private var isVictoryPoseDetected = false
+    
     @State private var numberOfVictoryHands: Int = 0
     @State private var numberOfTotalHands: Int = 0
-    @State private var resetTimer: Timer?
+    
+    @State private var twoHandsCancellable: AnyCancellable?
+    @State private var victoryPoseCancellable: AnyCancellable?
 
 
     
@@ -102,27 +105,63 @@ struct ContentView: View {
                 Spacer()
             }
         }
-        //two hands
+//        //two hands
+//        .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
+//            if selectedOption == 0, let numberOfHands = notification.object as? Int {
+//                isTwoHandsDetected = numberOfHands == 2
+//            }
+//        }
+//        //victoryhands
+//        .onReceive(NotificationCenter.default.publisher(for: .numberOfVictoryHandsDetectedChanged)) { notification in
+//            if selectedOption == 1,
+//               let detectedVictoryHands = notification.object as? Int {
+//                numberOfVictoryHands = detectedVictoryHands
+//            }
+//        }
+//
+//        .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
+//            if selectedOption == 1,
+//               let detectedTotalHands = notification.object as? Int {
+//                numberOfTotalHands = detectedTotalHands
+//            }
+//
+//            isVictoryPoseDetected = numberOfTotalHands == 2 && numberOfVictoryHands >= 1
+//        }
+        
         .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
             if selectedOption == 0, let numberOfHands = notification.object as? Int {
-                isTwoHandsDetected = numberOfHands == 2
+                if numberOfHands == 2 {
+                    isTwoHandsDetected = true
+                    twoHandsCancellable?.cancel()
+                    twoHandsCancellable = AnyCancellable {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            isTwoHandsDetected = false
+                        }
+                    }
+                }
             }
         }
-        //victoryhands
+
         .onReceive(NotificationCenter.default.publisher(for: .numberOfVictoryHandsDetectedChanged)) { notification in
-            if selectedOption == 1,
-               let detectedVictoryHands = notification.object as? Int {
+            if selectedOption == 1, let detectedVictoryHands = notification.object as? Int {
                 numberOfVictoryHands = detectedVictoryHands
             }
         }
 
         .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
-            if selectedOption == 1,
-               let detectedTotalHands = notification.object as? Int {
+            if selectedOption == 1, let detectedTotalHands = notification.object as? Int {
                 numberOfTotalHands = detectedTotalHands
             }
 
-            isVictoryPoseDetected = numberOfTotalHands == 2 && numberOfVictoryHands >= 1
+            if numberOfTotalHands == 2 && numberOfVictoryHands >= 1 {
+                isVictoryPoseDetected = true
+                victoryPoseCancellable?.cancel()
+                victoryPoseCancellable = AnyCancellable {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        isVictoryPoseDetected = false
+                    }
+                }
+            }
         }
 
     }
