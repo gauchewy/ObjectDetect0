@@ -112,48 +112,61 @@ class ViewController: UIViewController {
               let indexPoints = try? observation.recognizedPoints(.indexFinger),
               let middlePoints = try? observation.recognizedPoints(.middleFinger),
               let ringPoints = try? observation.recognizedPoints(.ringFinger),
-              let littlePoints = try? observation.recognizedPoints(.littleFinger),
-              let wristPoint = try? observation.recognizedPoints(.all)[.wrist] else {
+              let littlePoints = try? observation.recognizedPoints(.littleFinger)
+              //let wristPoint = try? observation.recognizedPoints(.all)[.wrist]
+        else {
             return false
         }
         
-
         guard let wristPoints = try? observation.recognizedPoints(.all),
               let wrist = wristPoints[.wrist] else {
             return false
         }
 
-        let confidenceThreshold: Float = 0.3
-        let extendedDistanceThreshold: CGFloat = 0.20 //20 percent of the diagonal length of screen
-        guard let middleMCP = middlePoints[.middleMCP] else {
-            return false
-        }
-        let palmDistance: CGFloat = distance(from: middleMCP.location, to: wrist.location)
 
-        
-        func isFingerExtended(fingerTip: VNRecognizedPoint?) -> Bool {
-            guard let tip = fingerTip, tip.confidence > confidenceThreshold else {
+        //notes:
+        //hand palm must be facing camera
+        //simple gestures like thumbs up we're all good
+        func calculateMCPToWristDistance(for fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> CGFloat? {
+            guard let mcpLocation = fingerPoints[mcpJoint]?.location else {
+                return nil
+            }
+            return distance(from: mcpLocation, to: wristLocation)
+        }
+
+
+        func isFingerExtended(fingerTip: VNRecognizedPoint?, fingerPoints: [VNHumanHandPoseObservation.JointName: VNRecognizedPoint], mcpJoint: VNHumanHandPoseObservation.JointName, wristLocation: CGPoint) -> Bool {
+            guard let tipLocation = fingerTip?.location else {
                 return false
             }
-            let dis = distance(from: tip.location, to: wrist.location)
-            return dis > palmDistance*1.2
+            
+            guard let mcpToWristDistance = calculateMCPToWristDistance(for: fingerPoints, mcpJoint: mcpJoint, wristLocation: wristLocation) else {
+                return false
+            }
+            
+            let tipToWristDistance = distance(from: tipLocation, to: wristLocation)
+            return tipToWristDistance > mcpToWristDistance
         }
 
-        let thumbExtended = isFingerExtended(fingerTip: thumbPoints[.thumbTip])
-        let indexExtended = isFingerExtended(fingerTip: indexPoints[.indexTip])
-        let middleExtended = isFingerExtended(fingerTip: middlePoints[.middleTip])
-        let ringExtended = isFingerExtended(fingerTip: ringPoints[.ringTip])
-        let littleExtended = isFingerExtended(fingerTip: littlePoints[.littleTip])
+        
+
+        let thumbExtended = isFingerExtended(fingerTip: thumbPoints[.thumbTip], fingerPoints: thumbPoints, mcpJoint: .thumbMP, wristLocation: wrist.location)
+        let indexExtended = isFingerExtended(fingerTip: indexPoints[.indexTip], fingerPoints: indexPoints, mcpJoint: .indexMCP, wristLocation: wrist.location)
+        let middleExtended = isFingerExtended(fingerTip: middlePoints[.middleTip], fingerPoints: middlePoints, mcpJoint: .middleMCP, wristLocation: wrist.location)
+        let ringExtended = isFingerExtended(fingerTip: ringPoints[.ringTip], fingerPoints: ringPoints, mcpJoint: .ringMCP, wristLocation: wrist.location)
+        let littleExtended = isFingerExtended(fingerTip: littlePoints[.littleTip], fingerPoints: littlePoints, mcpJoint: .littleMCP, wristLocation: wrist.location)
+
         
         print("Thumb Points:", thumbExtended)
         print("Index Points:", indexExtended)
         print("Middle Points:", middleExtended)
         print("Ring Points:", ringExtended)
         print("Little Points:", littleExtended)
+        print("____")
 
         // Victory position is inferred if only the index and middle fingers are extended
         let victoryDetected = indexExtended && middleExtended && !thumbExtended && !ringExtended && !littleExtended
-        print(victoryDetected)
+
         return victoryDetected
     }
 
