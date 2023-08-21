@@ -6,8 +6,8 @@
 //
 
 // TO DO OVERALL
-// reduce flickering in victory hands
-// debug for why thumbs-up has issue in contentview
+// reduce flickering in victory hands after initally ok
+// remove thumbs up, replace with wiggle fingers
 
 import SwiftUI
 import Foundation
@@ -30,15 +30,16 @@ struct ContentView: View {
     @State private var isTwoHandsDetected = false
     @State private var isVictoryPoseDetected = false
     @State private var isThumbsUpPoseDetected = false
+    @State private var isWigglePoseDetected = false
     
     @State private var numberOfVictoryHands: Int = 0
     @State private var numberOfThumbsUpHands: Int = 0
     @State private var numberOfTotalHands: Int = 0
+    @State private var numberOfWiggleHands: Int = 0
     
     @State private var twoHandsCancellable: AnyCancellable?
     @State private var victoryPoseCancellable: AnyCancellable?
     @State private var thumbsUpPoseCancellable: AnyCancellable?
-
 
     
     var menuTitle: String {
@@ -49,6 +50,8 @@ struct ContentView: View {
             return "Victory Pose"
         case 2:
             return "Thumbs Up"
+        case 3:
+            return "Wiggle"
         default:
             return "Choose Hand Pose"
         }
@@ -63,7 +66,8 @@ struct ContentView: View {
                 .padding()
 
             // Conditions to display the black Rectangle based on option selected
-            if (selectedOption == 0 && !isTwoHandsDetected) || (selectedOption == 1 && !isVictoryPoseDetected) {
+            if (selectedOption == 0 && !isTwoHandsDetected) || (selectedOption == 1 && !isVictoryPoseDetected) ||
+            (selectedOption == 2 && !isThumbsUpPoseDetected) || (selectedOption == 3 && !isWigglePoseDetected){
                 Rectangle()
                     .fill(Color.black)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -80,7 +84,8 @@ struct ContentView: View {
                         .background(
                             (selectedOption == 0 && isTwoHandsDetected) ||
                             (selectedOption == 1 && isVictoryPoseDetected) ||
-                            (selectedOption == 2 && isThumbsUpPoseDetected)
+                            (selectedOption == 2 && isThumbsUpPoseDetected) ||
+                            (selectedOption == 3 && isWigglePoseDetected)
                             ? Color.clear : Color.black
                         )
                         .cornerRadius(20)
@@ -88,7 +93,8 @@ struct ContentView: View {
                             RoundedRectangle(cornerRadius: 20).stroke(Color.green, lineWidth:
                                                                         (selectedOption == 0 && isTwoHandsDetected) ||
                                                                         (selectedOption == 1 && isVictoryPoseDetected) ||
-                                                                        (selectedOption == 2 && isThumbsUpPoseDetected)
+                                                                        (selectedOption == 2 && isThumbsUpPoseDetected) ||
+                                                                        (selectedOption == 3 && isWigglePoseDetected)
                                                                         ? 5 : 0)
                         )
                         .padding()
@@ -107,6 +113,10 @@ struct ContentView: View {
                     }
                     Button(action: { selectedOption = 2 }) {
                         Text("Thumbs Up")
+                            .font(.system(size: 18, weight: .bold))
+                    }
+                    Button(action: { selectedOption = 3 }) {
+                        Text("Wiggle")
                             .font(.system(size: 18, weight: .bold))
                     }
                 }
@@ -192,6 +202,10 @@ extension NSNotification.Name {
 
 extension NSNotification.Name {
     static let numberOfThumbsUpHandsDetectedChanged = NSNotification.Name("numberOfThumbsUpHandsDetectedChanged")
+}
+
+extension Notification.Name {
+    static let numberOfIndexFingerWigglingDetectedChanged = Notification.Name("numberOfIndexFingerWigglingDetectedChanged")
 }
 
 

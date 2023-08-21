@@ -18,6 +18,8 @@ class ViewController: UIViewController {
   private let captureSession = AVCaptureSession()
 
   private lazy var previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+    
+  private var previousIndexFingerCoordinates: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
 
   // MARK: - Lifecycle
 
@@ -81,6 +83,7 @@ class ViewController: UIViewController {
                 if let results = vnRequest.results as? [VNHumanHandPoseObservation], !results.isEmpty {
                     var victoryHandsCount = 0
                     var thumbsUpHandsCount = 0
+                    var indexFingerWigglingCount = 0
                     for observation in results {
                         if self.isHandInVictoryPosition(observation: observation) {
                             victoryHandsCount += 1
@@ -88,20 +91,27 @@ class ViewController: UIViewController {
                         if self.isHandInThumbsUpPosition(observation: observation) {
                             thumbsUpHandsCount += 1
                         }
+                        if self.isIndexFingerUpAndWiggling(observation: observation) {
+                            indexFingerWigglingCount += 1
+                        }
                     }
-
+                    
                     // Post the number of victory hands detected
                     NotificationCenter.default.post(name: .numberOfVictoryHandsDetectedChanged, object: victoryHandsCount)
                     
                     // Post the number of thumbs up hands detected
                     NotificationCenter.default.post(name: .numberOfThumbsUpHandsDetectedChanged, object: thumbsUpHandsCount)
                     
+                    // wiggle count
+                    NotificationCenter.default.post(name: .numberOfIndexFingerWigglingDetectedChanged, object: indexFingerWigglingCount)
                     
                     // Post total number of hands detected
                     NotificationCenter.default.post(name: .numberOfHandsDetectedChanged, object: results.count)
                 } else {
                     NotificationCenter.default.post(name: .numberOfVictoryHandsDetectedChanged, object: 0)
                     NotificationCenter.default.post(name: .numberOfHandsDetectedChanged, object: 0)
+                    NotificationCenter.default.post(name: .numberOfThumbsUpHandsDetectedChanged, object: 0)
+                    NotificationCenter.default.post(name: .numberOfIndexFingerWigglingDetectedChanged, object: 0)
                 }
             }
         }
@@ -190,7 +200,8 @@ class ViewController: UIViewController {
 //        print(">>>>>")
 
         //only thumb extended
-        return !indexExtended && !middleExtended && thumbExtended && !ringExtended && !littleExtended
+        let res = !indexExtended && !middleExtended && thumbExtended && !ringExtended && !littleExtended
+        return res
     }
 
     private func isHandInVictoryPosition(observation: VNHumanHandPoseObservation) -> Bool {
@@ -200,8 +211,37 @@ class ViewController: UIViewController {
 
     private func isHandInThumbsUpPosition(observation: VNHumanHandPoseObservation) -> Bool {
         guard let fingerPositions = extendedFingerPositions(observation: observation) else { return false }
-        print(isThumbsUpHandPose(fingerPositions: fingerPositions))
+        //(isThumbsUpHandPose(fingerPositions: fingerPositions))
         return isThumbsUpHandPose(fingerPositions: fingerPositions)
+    }
+    
+    private func isIndexFingerUpAndWiggling(observation: VNHumanHandPoseObservation) -> Bool {
+        guard let fingerPositions = extendedFingerPositions(observation: observation) else { return false }
+        
+        // Check if only the index finger is extended
+        let indexExtended = fingerPositions[1]
+        //print(indexExtended)
+        //let onlyIndexFingerExtended = !fingerPositions[0] && indexExtended && !fingerPositions[2] && !fingerPositions[3] && !fingerPositions[4]
+        
+        // Check if the index finger is wiggling based on its tip's coordinates
+        if let indexPoints = try? observation.recognizedPoints(.indexFinger),
+           let indexTip = indexPoints[.indexTip]?.location {
+            
+            if let prevIndexTipLocation = previousIndexFingerCoordinates[.indexTip] {
+                let distanceMoved = distance(from: prevIndexTipLocation, to: indexTip)
+                //print(distanceMoved)
+                // You can adjust the threshold as per your requirement
+                if distanceMoved > 0.05 {
+                    previousIndexFingerCoordinates[.indexTip] = indexTip
+                    print("fits wiggle criteria")
+                    return true
+                }
+            }
+            
+            previousIndexFingerCoordinates[.indexTip] = indexTip
+        }
+        
+        return false
     }
 }
 
@@ -220,4 +260,5 @@ extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
   }
 
 }
+
 
