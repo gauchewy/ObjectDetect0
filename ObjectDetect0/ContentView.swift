@@ -40,6 +40,7 @@ struct ContentView: View {
     @State private var twoHandsCancellable: AnyCancellable?
     @State private var victoryPoseCancellable: AnyCancellable?
     @State private var thumbsUpPoseCancellable: AnyCancellable?
+    @State private var wiggleHandsCancellable: AnyCancellable?
 
     
     var menuTitle: String {
@@ -91,11 +92,11 @@ struct ContentView: View {
                         .cornerRadius(20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20).stroke(Color.green, lineWidth:
-                                                                        (selectedOption == 0 && isTwoHandsDetected) ||
-                                                                        (selectedOption == 1 && isVictoryPoseDetected) ||
-                                                                        (selectedOption == 2 && isThumbsUpPoseDetected) ||
-                                                                        (selectedOption == 3 && isWigglePoseDetected)
-                                                                        ? 5 : 0)
+                            (selectedOption == 0 && isTwoHandsDetected) ||
+                            (selectedOption == 1 && isVictoryPoseDetected) ||
+                            (selectedOption == 2 && isThumbsUpPoseDetected) ||
+                            (selectedOption == 3 && isWigglePoseDetected)
+                            ? 5 : 0)
                         )
                         .padding()
                 }
@@ -171,7 +172,6 @@ struct ContentView: View {
                 numberOfThumbsUpHands = detectedVictoryHands
             }
         }
-
         .onReceive(NotificationCenter.default.publisher(for: .numberOfHandsDetectedChanged)) { notification in
             if selectedOption == 2, let detectedTotalHands = notification.object as? Int {
                 numberOfTotalHands = detectedTotalHands
@@ -187,8 +187,21 @@ struct ContentView: View {
                 }
             }
         }
+        //wiggling -- copy structure from victory?
+        .onReceive(NotificationCenter.default.publisher(for: .numberOfIndexFingerWigglingDetectedChanged)) { notification in
+            if selectedOption == 3, let numberOfHands = notification.object as? Int {
+                if numberOfHands == 2 {
+                    isTwoHandsDetected = true
+                    wiggleHandsCancellable?.cancel()
+                    wiggleHandsCancellable = AnyCancellable {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            isWigglePoseDetected = false
+                        }
+                    }
+                }
+            }
+        }
     }
-
 }
 
 

@@ -229,9 +229,9 @@ class ViewController: UIViewController {
             
             if let prevIndexTipLocation = previousIndexFingerCoordinates[.indexTip] {
                 let distanceMoved = distance(from: prevIndexTipLocation, to: indexTip)
-                //print(distanceMoved)
+                print(distanceMoved)
                 // You can adjust the threshold as per your requirement
-                if distanceMoved > 0.05 {
+                if distanceMoved > 0.1 {
                     previousIndexFingerCoordinates[.indexTip] = indexTip
                     print("fits wiggle criteria")
                     return true
@@ -240,7 +240,7 @@ class ViewController: UIViewController {
             
             previousIndexFingerCoordinates[.indexTip] = indexTip
         }
-        
+        print("no wiggle")
         return false
     }
 }
