@@ -6,8 +6,8 @@
 //
 
 // TO DO OVERALL
-// reduce flickering in victory hands after initally ok
-// remove thumbs up, replace with wiggle fingers
+// reduce flickering in all
+// debug thumbs up
 
 import SwiftUI
 import Foundation
@@ -191,7 +191,8 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .numberOfIndexFingerWigglingDetectedChanged)) { notification in
             if selectedOption == 3, let numberOfHands = notification.object as? Int {
                 if numberOfHands == 2 {
-                    isTwoHandsDetected = true
+                    //print("2 hands detected!")
+                    isWigglePoseDetected = true
                     wiggleHandsCancellable?.cancel()
                     wiggleHandsCancellable = AnyCancellable {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
